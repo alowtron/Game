@@ -18,13 +18,16 @@ def declareVars():
     scaleHeight = screenHeight
 
     print("Creating player variables...")
-    global playerPosition , playerSize, playerSpeed, playerMaxHealth, playerCurrentHealth, playerHealFrequency
-    playerPosition = [screenWidth // 2, screenHeight // 2]
-    playerSize = 20
-    playerSpeed = 5
-    playerMaxHealth = 500
-    playerCurrentHealth = playerMaxHealth
-    playerHealFrequency = 100
+    global playerVars, playerCurrentHealth
+    playerVars = {
+        'position': [screenWidth // 2, screenHeight // 2],
+        'size': 20,
+        'speed': 5,
+        'maxHealth': 500,
+        'healFrequency': 100
+    }
+    playerCurrentHealth = playerVars['maxHealth']
+
     global playerBasicAttack
     playerBasicAttack = {
         'list': [],
@@ -32,7 +35,7 @@ def declareVars():
         'speed': 20,
         'color': (0, 255, 0),
         'frequency': 60,
-        'damage': 10
+        'damage': 20
     }
 
     print("Creating enemies variables...")
@@ -40,12 +43,14 @@ def declareVars():
     enemiesList = []
     enemySize = 20
     enemySpeed = 2
-    global enemy1SpawnFrequency, enemy1DamageAmount, enemy1Health, enemy1Speed, enemy1Size
-    enemy1SpawnFrequency = 240
-    enemy1DamageAmount = 1
-    enemy1Health = 100
-    enemy1Speed = 2
-    enemy1Size = 20
+    global enemy1
+    enemy1 = {
+        'spawnFrequency': 240,
+        'damageAmount': 1,
+        'health': 100,
+        'speed': 2,
+        'size': 20
+    }
 
     print("Creating colors...")
     global playerColor, enemyColor, backgroundColor, wallColor
@@ -94,9 +99,9 @@ def mainStep():
         moveEnemies()
         if frameCount % terrainFrequency == 0:
             generateTerrain()
-        if frameCount % enemy1SpawnFrequency == 0:
+        if frameCount % enemy1['spawnFrequency'] == 0:
             generateEnemy(1)
-        if frameCount % playerHealFrequency == 0:
+        if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
             playerCurrentHealth += 1
         if frameCount % playerBasicAttack['frequency'] == 0:
             usePlayerBasicAttack()
@@ -110,28 +115,28 @@ def mainStep():
     quitGame()
 
 def playerMovement():
-    global playerPosition
+    global playerVars
     print("Moving Player...")
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-        playerPosition[0] -= playerSpeed
+        playerVars['position'][0] -= playerVars['speed']
     if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-        playerPosition[0] += playerSpeed
+        playerVars['position'][0] += playerVars['speed']
     if keys[pygame.K_UP] or keys[pygame.K_w]:
-        playerPosition[1] -= playerSpeed
+        playerVars['position'][1] -= playerVars['speed']
     if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-        playerPosition[1] += playerSpeed
+        playerVars['position'][1] += playerVars['speed']
 
     # Keeps player in playing area  
-    playerPosition[0] = max(playerSize, min(screenWidth - playerSize, playerPosition[0]))
-    playerPosition[1] = max(playerSize, min(screenHeight - playerSize, playerPosition[1]))
+    playerVars['position'][0] = max(playerVars['size'], min(screenWidth - playerVars['size'], playerVars['position'][0]))
+    playerVars['position'][1] = max(playerVars['size'], min(screenHeight - playerVars['size'], playerVars['position'][1]))
 
 def moveEnemies():
     print("Moving Enemies...")
     for enemy in enemiesList:
         # Calculate direction vector
-        dx = playerPosition[0] - enemy['rect'].centerx
-        dy = playerPosition[1] - enemy['rect'].centery
+        dx = playerVars['position'][0] - enemy['rect'].centerx
+        dy = playerVars['position'][1] - enemy['rect'].centery
         distance = math.hypot(dx, dy)
         
         # Normalize direction
@@ -167,25 +172,25 @@ def generateEnemy(enemyNumber):
     
     # x, y, size, size, speed,
     if enemyNumber == 1:
-        x = random.randint(0, screenWidth - enemy1Size)
-        y = random.randint(0, screenHeight - enemy1Size)
+        x = random.randint(0, screenWidth - enemy1['size'])
+        y = random.randint(0, screenHeight - enemy1['size'])
         newEnemy = {
-            'rect': pygame.Rect(x, y, enemy1Size, enemy1Size),
-            'speed': enemy1Speed,
-            'health': enemy1Health,
-            'maxHealth': enemy1Health,
-            'size': enemy1Size,
-            'damage': enemy1DamageAmount,
+            'rect': pygame.Rect(x, y, enemy1['size'], enemy1['size']),
+            'speed': enemy1['speed'],
+            'health': enemy1['health'],
+            'maxHealth': enemy1['health'],
+            'size': enemy1['size'],
+            'damage': enemy1['damageAmount'],
             'number': 1
         }
         enemiesList.append(newEnemy)
 
 def usePlayerBasicAttack():
     global playerBasicAttack
-    nearestEnemy = min(enemiesList, key=lambda e: math.hypot(e['rect'].centerx - playerPosition[0], e['rect'].centery - playerPosition[1]))
+    nearestEnemy = min(enemiesList, key=lambda e: math.hypot(e['rect'].centerx - playerVars['position'][0], e['rect'].centery - playerVars['position'][1]))
     # Calculate direction vector
-    dx = nearestEnemy['rect'].centerx - playerPosition[0]
-    dy = nearestEnemy['rect'].centery - playerPosition[1]
+    dx = nearestEnemy['rect'].centerx - playerVars['position'][0]
+    dy = nearestEnemy['rect'].centery - playerVars['position'][1]
     distance = math.hypot(dx, dy)
     # Normalize direction
     if distance != 0:
@@ -193,7 +198,7 @@ def usePlayerBasicAttack():
         dy = dy / distance
     # Create Projectile
     projectile = {
-        'position': playerPosition.copy(),
+        'position': playerVars['position'].copy(),
         'direction': (dx, dy)
     }
     playerBasicAttack['list'].append(projectile)
@@ -229,7 +234,7 @@ def drawGameFrame():
     for enemy in enemiesList:
         pygame.draw.rect(screen, enemyColor, enemy['rect'])
         drawEnemyHealthBar(enemy)
-    player = pygame.draw.circle(screen, playerColor, playerPosition, playerSize)
+    player = pygame.draw.circle(screen, playerColor, playerVars['position'], playerVars['size'])
     # Draw health bar
     bar_width = 200
     bar_height = 20
@@ -238,7 +243,7 @@ def drawGameFrame():
     # Background of health bar
     pygame.draw.rect(screen, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height))
     # Calculate health percentage
-    health_percentage = playerCurrentHealth / playerMaxHealth
+    health_percentage = playerCurrentHealth / playerVars['maxHealth']
     health_width = int(bar_width * health_percentage)
     # Foreground of health bar
     pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, health_width, bar_height))
@@ -251,7 +256,7 @@ def drawGameFrame():
 
 def playerDamage():
     global playerCurrentHealth
-    player_rect = pygame.Rect(playerPosition[0] - playerSize, playerPosition[1] - playerSize, playerSize * 2, playerSize * 2)
+    player_rect = pygame.Rect(playerVars['position'][0] - playerVars['size'], playerVars['position'][1] - playerVars['size'], playerVars['size'] * 2, playerVars['size'] * 2)
     for enemy in enemiesList:
         if player_rect.colliderect(enemy['rect']):
             playerCurrentHealth -= enemy['damage']
