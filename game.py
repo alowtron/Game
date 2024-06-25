@@ -103,8 +103,9 @@ def mainStep():
             generateEnemy(1)
         if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
             playerCurrentHealth += 1
-        if frameCount % playerBasicAttack['frequency'] == 0:
-            usePlayerBasicAttack()
+        if len(enemiesList) != 0:
+            if frameCount % playerBasicAttack['frequency'] == 0:
+                usePlayerBasicAttack()
         updatePlayerBasicAttackProjectile()
         drawGameFrame()
         playerDamage()
@@ -169,11 +170,16 @@ def moveEnemies():
 
 def generateEnemy(enemyNumber):
     print("Generating enemy...")
-    
+    minSpawnDistance = 200
     # x, y, size, size, speed,
     if enemyNumber == 1:
-        x = random.randint(0, screenWidth - enemy1['size'])
-        y = random.randint(0, screenHeight - enemy1['size'])
+        # Finds a place to spawn the enemy that is not to close to the player
+        while True:
+            x = random.randint(0, screenWidth - enemy1['size'])
+            y = random.randint(0, screenHeight - enemy1['size'])
+            distance = math.hypot(x - playerVars['position'][0], y - playerVars['position'][1])
+            if distance >= minSpawnDistance:
+                break
         newEnemy = {
             'rect': pygame.Rect(x, y, enemy1['size'], enemy1['size']),
             'speed': enemy1['speed'],
