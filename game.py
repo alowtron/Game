@@ -12,10 +12,11 @@ def runGame():
 
 def declareVars():
     print("Declaring variables...")
-    global screenWidth, screenHeight, scaleHeight
+    global screenWidth, screenHeight, scaleHeight, isPaused
     screenWidth = 1200 
     screenHeight = 800 
     scaleHeight = screenHeight
+    isPaused = False
 
     print("Creating player variables...")
     global playerVars, playerCurrentHealth
@@ -24,7 +25,8 @@ def declareVars():
         'size': 20,
         'speed': 5,
         'maxHealth': 500,
-        'healFrequency': 100
+        'healFrequency': 100,
+        'coins': 0 
     }
     playerCurrentHealth = playerVars['maxHealth']
 
@@ -49,7 +51,8 @@ def declareVars():
         'damageAmount': 1,
         'health': 100,
         'speed': 2,
-        'size': 20
+        'size': 20,
+        'coinGiven': 1
     }
 
     print("Creating colors...")
@@ -70,6 +73,8 @@ def declareVars():
     global frameCount
     frameCount = 0
 
+
+
 def initGame():
     print("Initializing game...")
     pygame.init()  
@@ -78,7 +83,50 @@ def initGame():
     screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.SCALED | pygame.RESIZABLE )
     fakeScreen = screen.copy()
     pygame.display.set_caption("Circle vs Squares")
+
+def pauseMenu():
+    global isPaused
+    pauseFont = pygame.font.Font(None, 74)
+    optionFont = pygame.font.Font(None, 50)
     
+    pauseText = pauseFont.render("PAUSED", True, (255, 255, 255))
+    resumeText = optionFont.render("Resume", True, (255, 255, 255))
+    quitText = optionFont.render("Quit", True, (255, 255, 255))
+    
+    pauseRect = pauseText.get_rect(center=(screenWidth//2, screenHeight//2 - 100))
+    resumeRect = resumeText.get_rect(center=(screenWidth//2, screenHeight//2 + 50))
+    quitRect = quitText.get_rect(center=(screenWidth//2, screenHeight//2 + 120))
+    
+    options = ["Resume", "Quit"]
+    selected = 0
+    
+    while isPaused:
+        screen.fill(backgroundColor)  # Clear the screen
+        screen.blit(pauseText, pauseRect)
+        
+        for i, option in enumerate([resumeText, quitText]):
+            if i == selected:
+                pygame.draw.rect(screen, (100, 100, 100), option.get_rect(center=(screenWidth//2, screenHeight//2 + 50 + i*70)).inflate(20, 10))
+            screen.blit(option, option.get_rect(center=(screenWidth//2, screenHeight//2 + 50 + i*70)))
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quitGame()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    isPaused = False
+                elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                    selected = (selected - 1) % len(options)
+                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                    selected = (selected + 1) % len(options)
+                elif event.key == pygame.K_RETURN:
+                    if selected == 0:  # Resume
+                        isPaused = False
+                    elif selected == 1:  # Quit
+                        quitGame()
+
 def generateTerrain():
     print("Generating terrain...")
     x = random.randint(0, screenWidth - terrainSize)
@@ -88,29 +136,36 @@ def generateTerrain():
         terrainArray.pop(0)
     
 def mainStep():
-    global frameCount, playerCurrentHealth
+    global frameCount, playerCurrentHealth, isPaused
     running = True
     clock = pygame.time.Clock()
     while running == True:
         for event in pygame.event.get():            
             if event.type == pygame.QUIT:
-                running = False        
-        playerMovement()
-        moveEnemies()
-        if frameCount % terrainFrequency == 0:
-            generateTerrain()
-        if frameCount % enemy1['spawnFrequency'] == 0:
-            generateEnemy(1)
-        if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
-            playerCurrentHealth += 1
-        if len(enemiesList) != 0:
-            if frameCount % playerBasicAttack['frequency'] == 0:
-                usePlayerBasicAttack()
-        updatePlayerBasicAttackProjectile()
-        drawGameFrame()
-        playerDamage()
-        frameCount += 1
-        print(frameCount)
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    isPaused = not isPaused
+                    if isPaused:
+                        pauseMenu()
+
+        if not isPaused:                
+            playerMovement()
+            moveEnemies()
+            if frameCount % terrainFrequency == 0:
+                generateTerrain()
+            if frameCount % enemy1['spawnFrequency'] == 0:
+                generateEnemy(1)
+            if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
+                playerCurrentHealth += 1
+            if len(enemiesList) != 0:
+                if frameCount % playerBasicAttack['frequency'] == 0:
+                    usePlayerBasicAttack()
+            updatePlayerBasicAttackProjectile()
+            drawGameFrame()
+            playerDamage()
+            frameCount += 1
+            print(frameCount)
         clock.tick(60)
             
     quitGame()
@@ -187,7 +242,8 @@ def generateEnemy(enemyNumber):
             'maxHealth': enemy1['health'],
             'size': enemy1['size'],
             'damage': enemy1['damageAmount'],
-            'number': 1
+            'number': 1,
+            'coinGiven': enemy1['coinGiven']
         }
         enemiesList.append(newEnemy)
 
@@ -226,6 +282,8 @@ def updatePlayerBasicAttackProjectile():
             if projectileRect.colliderect(enemy['rect']):
                 enemy['health'] -= playerBasicAttack['damage']
                 if enemy['health'] <= 0:
+                    # Add coins to player for kill then remove the enemy
+                    playerVars['coins'] += enemy['coinGiven']
                     enemiesList.remove(enemy)
                 playerBasicAttack['list'].remove(projectile)
                 break
@@ -255,9 +313,14 @@ def drawGameFrame():
     pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, health_width, bar_height))
     # Optional: Add a border to the health bar
     pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 2)
+    # Draw coins amount
+    font = pygame.font.Font(None, 36)
+    coinText = font.render(f"Coins: {playerVars['coins']}", True, (255, 255, 255))
+    screen.blit(coinText, (10, 10))
     # Draw Projectiles from playerBasicAttack
     for projectile in playerBasicAttack['list']:
         pygame.draw.circle(screen, playerBasicAttack['color'], [int(projectile['position'][0]), int(projectile['position'][1])], playerBasicAttack['size'])
+    
     pygame.display.flip()
 
 def playerDamage():
