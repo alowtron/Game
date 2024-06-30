@@ -3,6 +3,7 @@ import pygame
 import sys
 import random
 import math
+import copy 
 
 def runGame():
     declareVars()
@@ -29,6 +30,17 @@ def declareVars():
         'coins': 0 
     }
     playerCurrentHealth = playerVars['maxHealth']
+    global upgrades, keyPrice, hasKey, baseStatUpgrades
+    upgrades = {
+        'basic attack damage': {'level': 1, 'price': 1, 'increment': 1},
+        'basic attack frequency': {'level': 1, 'price': 10, 'increment': 1},
+        'basic attack speed': {'level': 1, 'price': 10, 'increment': 1},
+        'speed': {'level': 1, 'price': 10, 'increment': 0.1},
+        'health': {'level': 1, 'price': 100, 'increment': 50}
+    }
+    baseStatUpgrades = copy.deepcopy(upgrades)
+    keyPrice = 100
+    hasKey = False
 
     global playerBasicAttack
     playerBasicAttack = {
@@ -52,7 +64,7 @@ def declareVars():
         'health': 100,
         'speed': 2,
         'size': 20,
-        'coinGiven': 1
+        'coinGiven': 1000
     }
 
     print("Creating colors...")
@@ -73,8 +85,6 @@ def declareVars():
     global frameCount
     frameCount = 0
 
-
-
 def initGame():
     print("Initializing game...")
     pygame.init()  
@@ -91,20 +101,22 @@ def pauseMenu():
     
     pauseText = pauseFont.render("PAUSED", True, (255, 255, 255))
     resumeText = optionFont.render("Resume", True, (255, 255, 255))
+    upgradesText = optionFont.render("Upgrades", True, (255, 255, 255))
     quitText = optionFont.render("Quit", True, (255, 255, 255))
     
     pauseRect = pauseText.get_rect(center=(screenWidth//2, screenHeight//2 - 100))
     resumeRect = resumeText.get_rect(center=(screenWidth//2, screenHeight//2 + 50))
-    quitRect = quitText.get_rect(center=(screenWidth//2, screenHeight//2 + 120))
+    upgradesRect = upgradesText.get_rect(center=(screenWidth//2, screenHeight//2 + 120))
+    quitRect = quitText.get_rect(center=(screenWidth//2, screenHeight//2 + 190))
     
-    options = ["Resume", "Quit"]
+    options = ["Resume", "Upgrades", "Quit"]
     selected = 0
     
     while isPaused:
-        screen.fill(backgroundColor)  # Clear the screen
+        screen.fill(backgroundColor)
         screen.blit(pauseText, pauseRect)
         
-        for i, option in enumerate([resumeText, quitText]):
+        for i, option in enumerate([resumeText, upgradesText, quitText]):
             if i == selected:
                 pygame.draw.rect(screen, (100, 100, 100), option.get_rect(center=(screenWidth//2, screenHeight//2 + 50 + i*70)).inflate(20, 10))
             screen.blit(option, option.get_rect(center=(screenWidth//2, screenHeight//2 + 50 + i*70)))
@@ -124,7 +136,9 @@ def pauseMenu():
                 elif event.key == pygame.K_RETURN:
                     if selected == 0:  # Resume
                         isPaused = False
-                    elif selected == 1:  # Quit
+                    elif selected == 1:  # Upgrades
+                        handleUpgradeMenu()
+                    elif selected == 2:  # Quit
                         quitGame()
 
 def generateTerrain():
@@ -134,7 +148,99 @@ def generateTerrain():
     terrainArray.append(pygame.Rect(x, y, terrainSize, terrainSize))
     if len(terrainArray) >= terrainDuration / terrainFrequency:
         terrainArray.pop(0)
+
+def handleUpgradeMenu():
+    global playerVars, upgrades, hasKey
+    levelCap = 50
+    # Create a list of available upgrade options (level <= levelCap) and is level 1 or higher (level 0 skills are not active yet) including Boss Key and Back
+    upgradeOptions = [upgrade for upgrade, data in upgrades.items() if data['level'] <= levelCap and data['level'] >= 0] + ["Boss Key", "Back"]
+    selected = 0  # Initialize the selected option
     
+    while True:
+        drawUpgradeMenu(selected, upgradeOptions)  # Pass upgradeOptions to drawUpgradeMenu
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quitGame()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return  # Exit the upgrade menu
+                elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                    # Move selection up, wrapping around to bottom if at top
+                    selected = (selected - 1) % len(upgradeOptions)
+                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                    # Move selection down, wrapping around to top if at bottom
+                    selected = (selected + 1) % len(upgradeOptions)
+                elif event.key == pygame.K_RETURN:
+                    if selected < len(upgradeOptions) - 2:  # -2 for Boss Key and Back options
+                        # Handle upgrade selection
+                        upgrade = upgradeOptions[selected]
+                        if playerVars['coins'] >= upgrades[upgrade]['price']:
+
+                            # Apply the upgrade
+                            playerVars['coins'] -= upgrades[upgrade]['price']
+                            upgrades[upgrade]['level'] += 1
+                            if upgrade == 'basic attack damage':
+                                playerBasicAttack['damage'] += upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['basic attack damage']['price']
+                                print(baseStatUpgrades)
+                            elif upgrade == 'basic attack frequency':
+                                playerBasicAttack['frequency'] -= upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['basic attack frequency']['price']
+                            elif upgrade == 'basic attack speed':
+                                playerBasicAttack['speed'] += upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['basic attack speed']['price']
+                            # elif upgrade == 'speed':
+
+                            # Apply upgrade effects (damage, speed, health, etc.)
+                            # ...
+                            # upgrades[upgrade]['price'] *= 2  # Increase price for next upgrade
+                            # If upgrade reached level 6, remove it from options
+                            if upgrades[upgrade]['level'] > levelCap:
+                                upgradeOptions.remove(upgrade)
+                                selected = min(selected, len(upgradeOptions) - 1)
+                    elif selected == len(upgradeOptions) - 2:  # Boss Key option
+                        if not hasKey and playerVars['coins'] >= keyPrice:
+                            playerVars['coins'] -= keyPrice
+                            hasKey = True
+                    else:  # Back option
+                        return  # Exit the upgrade menu
+
+def drawUpgradeMenu(selected, upgradeOptions):
+    upgradeFont = pygame.font.Font(None, 36)
+    screen.fill(backgroundColor)
+    
+    y = 100  # Starting y-position for drawing options
+    # Draw upgrade options
+    for i, upgrade in enumerate(upgradeOptions[:-2]):  # Exclude Boss Key and Back
+        data = upgrades[upgrade]
+        text = f"{upgrade.capitalize()}: Level {data['level']} - Cost: {data['price']} coins"
+        textSurface = upgradeFont.render(text, True, (255, 255, 255))
+        textRect = textSurface.get_rect(center=(screenWidth // 2, y))
+        if i == selected:
+            # Highlight the selected option
+            pygame.draw.rect(screen, (100, 100, 100), textRect.inflate(20, 10))
+        screen.blit(textSurface, textRect)
+        y += 50  # Move down for next option
+    
+    # Draw Boss Key option
+    keyText = f"Boss Key: {'Owned' if hasKey else f'Cost: {keyPrice} coins'}"
+    keySurface = upgradeFont.render(keyText, True, (255, 255, 0))
+    keyRect = keySurface.get_rect(center=(screenWidth // 2, y + 50))
+    if selected == len(upgradeOptions) - 2:
+        # Highlight if selected
+        pygame.draw.rect(screen, (100, 100, 100), keyRect.inflate(20, 10))
+    screen.blit(keySurface, keyRect)
+    
+    # Draw Back option
+    backText = "Back"
+    backSurface = upgradeFont.render(backText, True, (200, 200, 200))
+    backRect = backSurface.get_rect(center=(screenWidth // 2, screenHeight - 50))
+    if selected == len(upgradeOptions) - 1:
+        # Highlight if selected
+        pygame.draw.rect(screen, (100, 100, 100), backRect.inflate(20, 10))
+    screen.blit(backSurface, backRect)
+    
+    pygame.display.flip()  # Update the display
 def mainStep():
     global frameCount, playerCurrentHealth, isPaused
     running = True
@@ -148,6 +254,10 @@ def mainStep():
                     isPaused = not isPaused
                     if isPaused:
                         pauseMenu()
+                elif event.key == pygame.K_u:
+                    handleUpgradeMenu()
+                elif event.key == pygame.K_b and hasKey:
+                    startBossFight()
 
         if not isPaused:                
             playerMovement()
@@ -169,6 +279,15 @@ def mainStep():
         clock.tick(60)
             
     quitGame()
+
+def startBossFight():
+    global hasKey
+    if hasKey:
+        print("Starting boss fight!")
+        # Add boss fight logic here
+        hasKey = False
+    else:
+        print("You need a key to start the boss fight!")
 
 def playerMovement():
     global playerVars
