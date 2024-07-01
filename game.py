@@ -35,6 +35,7 @@ def declareVars():
         'basic attack damage': {'level': 1, 'price': 1, 'increment': 1},
         'basic attack frequency': {'level': 1, 'price': 10, 'increment': 1},
         'basic attack speed': {'level': 1, 'price': 10, 'increment': 1},
+        'all direction attack': {'level': 0},
         'speed': {'level': 1, 'price': 10, 'increment': 0.1},
         'health': {'level': 1, 'price': 100, 'increment': 50}
     }
@@ -42,7 +43,7 @@ def declareVars():
     keyPrice = 100
     hasKey = False
 
-    global playerBasicAttack
+    global playerBasicAttack, playerAllDirectionAttack
     playerBasicAttack = {
         'list': [],
         'size': 5,
@@ -50,6 +51,15 @@ def declareVars():
         'color': (0, 255, 0),
         'frequency': 60,
         'damage': 20
+    }
+    playerAllDirectionAttack = {
+        'list': [],
+        'size': 2,
+        'speed': 10,
+        'color': (0, 255, 0),
+        'frequency': 36,
+        'damage': 5,
+        'projectile amount': 40
     }
 
     print("Creating enemies variables...")
@@ -241,6 +251,7 @@ def drawUpgradeMenu(selected, upgradeOptions):
     screen.blit(backSurface, backRect)
     
     pygame.display.flip()  # Update the display
+
 def mainStep():
     global frameCount, playerCurrentHealth, isPaused
     running = True
@@ -271,7 +282,10 @@ def mainStep():
             if len(enemiesList) != 0:
                 if frameCount % playerBasicAttack['frequency'] == 0:
                     usePlayerBasicAttack()
+            if frameCount % playerAllDirectionAttack['frequency'] == 0:
+                usePlayerAllDirectionAttack()
             updatePlayerBasicAttackProjectile()
+            updatePlayerAllDirectionAttackProjectile()
             drawGameFrame()
             playerDamage()
             frameCount += 1
@@ -384,6 +398,18 @@ def usePlayerBasicAttack():
     }
     playerBasicAttack['list'].append(projectile)
 
+def usePlayerAllDirectionAttack():
+    global playerAllDirectionAttack
+    angles = [i * (360 / playerAllDirectionAttack['projectile amount']) for i in range(playerAllDirectionAttack['projectile amount'])]
+    for angle in angles:
+        dx = math.cos(math.radians(angle))
+        dy = math.sin(math.radians(angle))
+        projectile = {
+            'position': playerVars['position'].copy(),
+            'direction': (dx, dy)
+        }
+        playerAllDirectionAttack['list'].append(projectile)
+
 def updatePlayerBasicAttackProjectile():
     global playerBasicAttack, enemiesList
     for projectile in playerBasicAttack['list']:
@@ -405,6 +431,29 @@ def updatePlayerBasicAttackProjectile():
                     playerVars['coins'] += enemy['coinGiven']
                     enemiesList.remove(enemy)
                 playerBasicAttack['list'].remove(projectile)
+                break
+
+def updatePlayerAllDirectionAttackProjectile():
+    global playerAllDirectionAttack, enemiesList
+    for projectile in playerAllDirectionAttack['list']:
+        # Move projectile
+        projectile['position'][0] += projectile['direction'][0] * playerAllDirectionAttack['speed']
+        projectile['position'][1] += projectile['direction'][1] * playerAllDirectionAttack['speed']
+        # Check if projectile is out of bounds
+        if (projectile['position'][0] < 0 or projectile['position'][0] > screenWidth or
+            projectile['position'][1] < 0 or projectile['position'][1] > screenHeight):
+            playerAllDirectionAttack['list'].remove(projectile)
+            continue
+        # Check for collision with enemies
+        projectileRect = pygame.Rect(projectile['position'][0] - playerAllDirectionAttack['size'], projectile['position'][1] - playerAllDirectionAttack['size'], playerAllDirectionAttack['size'] * 2, playerAllDirectionAttack['size'] * 2)
+        for enemy in enemiesList:
+            if projectileRect.colliderect(enemy['rect']):
+                enemy['health'] -= playerAllDirectionAttack['damage']
+                if enemy['health'] <= 0:
+                    # Add coins to player for kill then remove the enemy
+                    playerVars['coins'] += enemy['coinGiven']
+                    enemiesList.remove(enemy)
+                playerAllDirectionAttack['list'].remove(projectile)
                 break
 
 def drawGameFrame():
@@ -439,6 +488,9 @@ def drawGameFrame():
     # Draw Projectiles from playerBasicAttack
     for projectile in playerBasicAttack['list']:
         pygame.draw.circle(screen, playerBasicAttack['color'], [int(projectile['position'][0]), int(projectile['position'][1])], playerBasicAttack['size'])
+    # Draw projectiles from playerAllDirectionAttack
+    for projectile in playerAllDirectionAttack['list']:
+        pygame.draw.circle(screen, playerAllDirectionAttack['color'], [int(projectile['position'][0]), int(projectile['position'][1])], playerAllDirectionAttack['size'])
     
     pygame.display.flip()
 
