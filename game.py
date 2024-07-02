@@ -26,7 +26,7 @@ def declareVars():
         'size': 20,
         'speed': 5,
         'maxHealth': 500,
-        'healFrequency': 100,
+        'healFrequency': 101,
         'coins': 0 
     }
     playerCurrentHealth = playerVars['maxHealth']
@@ -35,9 +35,15 @@ def declareVars():
         'basic attack damage': {'level': 1, 'price': 1, 'increment': 1},
         'basic attack frequency': {'level': 1, 'price': 10, 'increment': 1},
         'basic attack speed': {'level': 1, 'price': 10, 'increment': 1},
-        'all direction attack': {'level': 0},
+        # goes to level 2 when active
+        'all direction attack': {'level': 1, 'price': 50, 'increment': 0},
+        'all direction attack damage': {'level': 0, 'price': 10, 'increment': 0.1},
+        'all direction attack projectile number': {'level': 0, 'price': 10, 'increment': 12},
+        'all direction attack frequency': {'level': 0, 'price': 100, 'increment': 7},
+        
         'speed': {'level': 1, 'price': 10, 'increment': 0.1},
-        'health': {'level': 1, 'price': 100, 'increment': 50}
+        'health': {'level': 1, 'price': 100, 'increment': 50},
+        'heal frequency': {'level': 1, 'price': 5, 'increment': 2}
     }
     baseStatUpgrades = copy.deepcopy(upgrades)
     keyPrice = 100
@@ -57,9 +63,9 @@ def declareVars():
         'size': 2,
         'speed': 10,
         'color': (0, 255, 0),
-        'frequency': 36,
+        'frequency': 360,
         'damage': 5,
-        'projectile amount': 40
+        'projectile amount': 4
     }
 
     print("Creating enemies variables...")
@@ -67,7 +73,7 @@ def declareVars():
     enemiesList = []
     enemySize = 20
     enemySpeed = 2
-    global enemy1
+    global enemy1, boss100
     enemy1 = {
         'spawnFrequency': 240,
         'damageAmount': 1,
@@ -75,6 +81,14 @@ def declareVars():
         'speed': 2,
         'size': 20,
         'coinGiven': 1000
+    }
+
+    boss100 = {
+        'damageAmount': 5,
+        'health': 100,
+        'speed': 3,
+        'size': 40,
+        'coinGiven': 2000
     }
 
     print("Creating colors...")
@@ -160,13 +174,15 @@ def generateTerrain():
         terrainArray.pop(0)
 
 def handleUpgradeMenu():
-    global playerVars, upgrades, hasKey
+    global playerVars, upgrades, hasKey, isPaused, playerCurrentHealth
     levelCap = 50
     # Create a list of available upgrade options (level <= levelCap) and is level 1 or higher (level 0 skills are not active yet) including Boss Key and Back
-    upgradeOptions = [upgrade for upgrade, data in upgrades.items() if data['level'] <= levelCap and data['level'] >= 0] + ["Boss Key", "Back"]
+    
+    
     selected = 0  # Initialize the selected option
     
     while True:
+        upgradeOptions = [upgrade for upgrade, data in upgrades.items() if data['level'] <= levelCap and data['level'] > 0] + ["Boss Key", "Back"]
         drawUpgradeMenu(selected, upgradeOptions)  # Pass upgradeOptions to drawUpgradeMenu
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -199,12 +215,31 @@ def handleUpgradeMenu():
                             elif upgrade == 'basic attack speed':
                                 playerBasicAttack['speed'] += upgrades[upgrade]['increment']
                                 upgrades[upgrade]['price'] += baseStatUpgrades['basic attack speed']['price']
-                            # elif upgrade == 'speed':
-
-                            # Apply upgrade effects (damage, speed, health, etc.)
-                            # ...
-                            # upgrades[upgrade]['price'] *= 2  # Increase price for next upgrade
-                            # If upgrade reached level 6, remove it from options
+                            elif upgrade == 'all direction attack':
+                                upgrades['all direction attack']['level'] += 50
+                                upgrades['all direction attack damage']['level'] += 1
+                                upgrades['all direction attack projectile number']['level'] += 1
+                                upgrades['all direction attack damage']['level'] += 1
+                                # upgradeOptions = [upgrade for upgrade, data in upgrades.items() if data['level'] <= levelCap and data['level'] > 0] + ["Boss Key", "Back"]
+                            elif upgrade == 'all direction attack damage':
+                                playerAllDirectionAttack['damage'] += upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['all direction attack damage']['price']
+                            elif upgrade == 'all direction attack projectile number':
+                                playerAllDirectionAttack['projectile amount'] += 1
+                                upgrades[upgrade]['price'] += baseStatUpgrades['all direction attack damage']['price']
+                            elif upgrade == 'all direction attack frequency':
+                                playerAllDirectionAttack['frequency'] -= upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['all direction attack frequency']['price']
+                            elif upgrade == 'speed':
+                                playerVars['speed'] += upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['speed']['price']
+                            elif upgrade == 'health':
+                                playerVars['maxHealth'] += upgrades[upgrade]['increment']
+                                playerCurrentHealth += upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['speed']['price']
+                            elif upgrade == 'heal frequency':
+                                playerVars['healFrequency'] -= upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['heal frequency']['price']
                             if upgrades[upgrade]['level'] > levelCap:
                                 upgradeOptions.remove(upgrade)
                                 selected = min(selected, len(upgradeOptions) - 1)
@@ -212,8 +247,12 @@ def handleUpgradeMenu():
                         if not hasKey and playerVars['coins'] >= keyPrice:
                             playerVars['coins'] -= keyPrice
                             hasKey = True
+                            enemiesList.clear()
+                            generateEnemy(100)
                     else:  # Back option
-                        return  # Exit the upgrade menu
+                        # isPaused = not isPaused
+                        #pauseMenu()  # Exit the upgrade menu
+                        return
 
 def drawUpgradeMenu(selected, upgradeOptions):
     upgradeFont = pygame.font.Font(None, 36)
@@ -253,7 +292,7 @@ def drawUpgradeMenu(selected, upgradeOptions):
     pygame.display.flip()  # Update the display
 
 def mainStep():
-    global frameCount, playerCurrentHealth, isPaused
+    global frameCount, playerCurrentHealth, isPaused, hasKey
     running = True
     clock = pygame.time.Clock()
     while running == True:
@@ -273,16 +312,20 @@ def mainStep():
         if not isPaused:                
             playerMovement()
             moveEnemies()
+            print(len(enemiesList))
+            print(hasKey)
+            if hasKey == True and len(enemiesList) == 0:
+                hasKey = False
             if frameCount % terrainFrequency == 0:
                 generateTerrain()
-            if frameCount % enemy1['spawnFrequency'] == 0:
+            if frameCount % enemy1['spawnFrequency'] == 0 and hasKey == False:
                 generateEnemy(1)
             if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
                 playerCurrentHealth += 1
             if len(enemiesList) != 0:
                 if frameCount % playerBasicAttack['frequency'] == 0:
                     usePlayerBasicAttack()
-            if frameCount % playerAllDirectionAttack['frequency'] == 0:
+            if frameCount % playerAllDirectionAttack['frequency'] == 0 and upgrades['all direction attack']['level'] >= 2:
                 usePlayerAllDirectionAttack()
             updatePlayerBasicAttackProjectile()
             updatePlayerAllDirectionAttackProjectile()
@@ -378,6 +421,24 @@ def generateEnemy(enemyNumber):
             'number': 1,
             'coinGiven': enemy1['coinGiven']
         }
+        enemiesList.append(newEnemy)
+    elif enemyNumber == 100:
+        while True:
+            x = random.randint(0, screenWidth - boss100['size'])
+            y = random.randint(0, screenHeight - boss100['size'])
+            distance = math.hypot(x - playerVars['position'][0], y - playerVars['position'][1])
+            if distance >= minSpawnDistance:
+                break
+        newEnemy = {
+            'rect': pygame.Rect(x, y, boss100['size'], boss100['size']),
+            'speed': boss100['speed'],
+            'health': boss100['health'],
+            'maxHealth': boss100['health'],
+            'size': boss100['size'],
+            'damage': boss100['damageAmount'],
+            'number': 100,
+            'coinGiven': boss100['coinGiven']
+        }    
         enemiesList.append(newEnemy)
 
 def usePlayerBasicAttack():
