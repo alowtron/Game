@@ -69,11 +69,12 @@ def declareVars():
     }
 
     print("Creating enemies variables...")
-    global enemiesList, enemySize, enemySpeed
+    global enemiesList, enemySize, enemySpeed, damagingZones
     enemiesList = []
     enemySize = 20
     enemySpeed = 2
-    global enemy1, boss100
+    damagingZones = []
+    global enemy1, enemy2, boss100
     enemy1 = {
         'spawnFrequency': 240,
         'damageAmount': 1,
@@ -83,10 +84,22 @@ def declareVars():
         'coinGiven': 1000
     }
 
+    # summoner
+    enemy2 = {
+        'spawnFrequency': 900,  # How often the summoner appears
+        'summonFrequency': 300,  # How often it summons minions
+        'damageAmount': 2,
+        'health': 500,
+        'speed': 1,
+        'size': 30,
+        'coinGiven': 5000
+    }
+
+
     boss100 = {
         'damageAmount': 5,
-        'health': 100,
-        'speed': 3,
+        'health': 1000,
+        'speed': 2,
         'size': 40,
         'coinGiven': 2000
     }
@@ -320,6 +333,8 @@ def mainStep():
                 generateTerrain()
             if frameCount % enemy1['spawnFrequency'] == 0 and hasKey == False:
                 generateEnemy(1)
+            if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False:
+                generateEnemy(2)
             if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
                 playerCurrentHealth += 1
             if len(enemiesList) != 0:
@@ -327,8 +342,13 @@ def mainStep():
                     usePlayerBasicAttack()
             if frameCount % playerAllDirectionAttack['frequency'] == 0 and upgrades['all direction attack']['level'] >= 2:
                 usePlayerAllDirectionAttack()
+            for enemy in enemiesList:
+                if enemy['number'] == 2 and frameCount - enemy['lastSummonTime'] >= enemy2['summonFrequency']:
+                    summonMinions(enemy)
+                    enemy['lastSummonTime'] = frameCount
             updatePlayerBasicAttackProjectile()
             updatePlayerAllDirectionAttackProjectile()
+            manageDamagingZones()
             drawGameFrame()
             playerDamage()
             frameCount += 1
@@ -402,15 +422,16 @@ def moveEnemies():
 def generateEnemy(enemyNumber):
     print("Generating enemy...")
     minSpawnDistance = 200
-    # x, y, size, size, speed,
+    
+    # Generate spawn position for all enemy types
+    while True:
+        x = random.randint(0, screenWidth - enemy1['size'])
+        y = random.randint(0, screenHeight - enemy1['size'])
+        distance = math.hypot(x - playerVars['position'][0], y - playerVars['position'][1])
+        if distance >= minSpawnDistance:
+            break
+
     if enemyNumber == 1:
-        # Finds a place to spawn the enemy that is not to close to the player
-        while True:
-            x = random.randint(0, screenWidth - enemy1['size'])
-            y = random.randint(0, screenHeight - enemy1['size'])
-            distance = math.hypot(x - playerVars['position'][0], y - playerVars['position'][1])
-            if distance >= minSpawnDistance:
-                break
         newEnemy = {
             'rect': pygame.Rect(x, y, enemy1['size'], enemy1['size']),
             'speed': enemy1['speed'],
@@ -421,14 +442,19 @@ def generateEnemy(enemyNumber):
             'number': 1,
             'coinGiven': enemy1['coinGiven']
         }
-        enemiesList.append(newEnemy)
+    elif enemyNumber == 2:  # enemy2 (summoner)
+        newEnemy = {
+            'rect': pygame.Rect(x, y, enemy2['size'], enemy2['size']),
+            'speed': enemy2['speed'],
+            'health': enemy2['health'],
+            'maxHealth': enemy2['health'],
+            'size': enemy2['size'],
+            'damage': enemy2['damageAmount'],
+            'number': 2,
+            'coinGiven': enemy2['coinGiven'],
+            'lastSummonTime': frameCount
+        }
     elif enemyNumber == 100:
-        while True:
-            x = random.randint(0, screenWidth - boss100['size'])
-            y = random.randint(0, screenHeight - boss100['size'])
-            distance = math.hypot(x - playerVars['position'][0], y - playerVars['position'][1])
-            if distance >= minSpawnDistance:
-                break
         newEnemy = {
             'rect': pygame.Rect(x, y, boss100['size'], boss100['size']),
             'speed': boss100['speed'],
@@ -438,8 +464,9 @@ def generateEnemy(enemyNumber):
             'damage': boss100['damageAmount'],
             'number': 100,
             'coinGiven': boss100['coinGiven']
-        }    
-        enemiesList.append(newEnemy)
+        }
+    
+    enemiesList.append(newEnemy)
 
 def usePlayerBasicAttack():
     global playerBasicAttack
@@ -470,6 +497,22 @@ def usePlayerAllDirectionAttack():
             'direction': (dx, dy)
         }
         playerAllDirectionAttack['list'].append(projectile)
+
+def summonMinions(summoner_enemy):
+    for _ in range(3):  # Summon 3 minions
+        x = summoner_enemy['rect'].centerx + random.randint(-50, 50)
+        y = summoner_enemy['rect'].centery + random.randint(-50, 50)
+        minion = {
+            'rect': pygame.Rect(x, y, enemy1['size'] // 2, enemy1['size'] // 2),
+            'speed': enemy1['speed'] * 1.5,
+            'health': enemy1['health'] // 4,
+            'maxHealth': enemy1['health'] // 2,
+            'size': enemy1['size'] // 2,
+            'damage': enemy1['damageAmount'],
+            'number': 1,
+            'coinGiven': 0
+        }
+        enemiesList.append(minion)
 
 def updatePlayerBasicAttackProjectile():
     global playerBasicAttack, enemiesList
@@ -517,6 +560,38 @@ def updatePlayerAllDirectionAttackProjectile():
                 playerAllDirectionAttack['list'].remove(projectile)
                 break
 
+def manageDamagingZones():
+    global damagingZones, playerCurrentHealth
+    
+    # Create new damaging zone if boss 100 exists
+    for enemy in enemiesList:
+        if enemy['number'] == 100 and random.random() < 0.09:  # 10% chance per frame
+            newZone = {
+                'position': [random.randint(0, screenWidth), random.randint(0, screenHeight)],
+                'radius': 10,
+                'max_radius': 100,
+                'growth_rate': 0.5,
+                'damage': 1,
+                'color': (255, 0, 0, 128)  # Red with some transparency
+            }
+            damagingZones.append(newZone)
+    
+    # Update existing zones
+    for zone in damagingZones[:]:
+        zone['radius'] += zone['growth_rate']
+        if zone['radius'] >= zone['max_radius']:
+            damagingZones.remove(zone)
+        else:
+            # Check if player is inside the zone
+            distance = math.hypot(playerVars['position'][0] - zone['position'][0],
+                                  playerVars['position'][1] - zone['position'][1])
+            if distance < zone['radius'] + playerVars['size']:
+                playerCurrentHealth -= zone['damage']
+                print(f"Player in damaging zone! Current health: {playerCurrentHealth}")
+                if playerCurrentHealth <= 0:
+                    print("Game Over!")
+                    quitGame()
+
 def drawGameFrame():
     print("Drawing frame...")
     # Sets background color
@@ -525,8 +600,19 @@ def drawGameFrame():
     for terrain in terrainArray:
         pygame.draw.rect(screen, wallColor, terrain)
     for enemy in enemiesList:
-        pygame.draw.rect(screen, enemyColor, enemy['rect'])
+        if enemy['number'] == 2:  # Summoner
+            pygame.draw.rect(screen, (255, 0, 255), enemy['rect'])  # Purple color for summoner
+        elif enemy['size'] < enemy1['size']:  # Minion
+            pygame.draw.rect(screen, (255, 165, 0), enemy['rect'])  # Orange color for minions
+        else:
+            pygame.draw.rect(screen, enemyColor, enemy['rect'])
         drawEnemyHealthBar(enemy)
+    # Draw damaging zones
+    for zone in damagingZones:
+        pygame.draw.circle(screen, zone['color'], 
+                           (int(zone['position'][0]), int(zone['position'][1])), 
+                           int(zone['radius']))
+    # Draw Player
     player = pygame.draw.circle(screen, playerColor, playerVars['position'], playerVars['size'])
     # Draw health bar
     bar_width = 200
@@ -560,8 +646,9 @@ def playerDamage():
     player_rect = pygame.Rect(playerVars['position'][0] - playerVars['size'], playerVars['position'][1] - playerVars['size'], playerVars['size'] * 2, playerVars['size'] * 2)
     for enemy in enemiesList:
         if player_rect.colliderect(enemy['rect']):
-            playerCurrentHealth -= enemy['damage']
-            print(f"Player hit! Current health: {playerCurrentHealth}")
+            damage = enemy.get('damage', 0)  # Use 0 as default if 'damage' key doesn't exist
+            playerCurrentHealth -= damage
+            print(f"Player hit by enemy type {enemy['number']}! Damage: {damage}, Current health: {playerCurrentHealth}")
             if playerCurrentHealth <= 0:
                 print("Game Over!")
                 quitGame()
