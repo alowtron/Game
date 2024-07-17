@@ -34,7 +34,7 @@ def declareVars():
     upgrades = {
         'basic attack damage': {'level': 1, 'price': 1, 'increment': 1},
         'basic attack frequency': {'level': 1, 'price': 10, 'increment': 1},
-        'basic attack speed': {'level': 1, 'price': 10, 'increment': 1},
+        # 'basic attack speed': {'level': 1, 'price': 10, 'increment': 0.1},
         # goes to level 2 when active
         'all direction attack': {'level': 1, 'price': 50, 'increment': 0},
         'all direction attack damage': {'level': 0, 'price': 10, 'increment': 0.1},
@@ -74,7 +74,7 @@ def declareVars():
     enemySize = 20
     enemySpeed = 2
     damagingZones = []
-    global enemy1, enemy2, boss100
+    global enemy1, enemy2, enemy3, boss100
     enemy1 = {
         'spawnFrequency': 240,
         'damageAmount': 1,
@@ -95,6 +95,15 @@ def declareVars():
         'coinGiven': 5000
     }
 
+    # Tank
+    enemy3 = {
+    'spawnFrequency': 1200,  # Spawns less frequently than other enemies
+    'damageAmount': 3,
+    'health': 800,
+    'speed': 1,  # Slower than other enemies
+    'size': 35,  # Larger than regular enemies
+    'coinGiven': 7500
+}
 
     boss100 = {
         'damageAmount': 5,
@@ -232,7 +241,7 @@ def handleUpgradeMenu():
                                 upgrades['all direction attack']['level'] += 50
                                 upgrades['all direction attack damage']['level'] += 1
                                 upgrades['all direction attack projectile number']['level'] += 1
-                                upgrades['all direction attack damage']['level'] += 1
+                                upgrades['all direction attack frequency']['level'] += 1
                                 # upgradeOptions = [upgrade for upgrade, data in upgrades.items() if data['level'] <= levelCap and data['level'] > 0] + ["Boss Key", "Back"]
                             elif upgrade == 'all direction attack damage':
                                 playerAllDirectionAttack['damage'] += upgrades[upgrade]['increment']
@@ -333,8 +342,10 @@ def mainStep():
                 generateTerrain()
             if frameCount % enemy1['spawnFrequency'] == 0 and hasKey == False:
                 generateEnemy(1)
-            if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False:
+            if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False and frameCount >= 5400:
                 generateEnemy(2)
+            if frameCount % enemy3['spawnFrequency'] == 0 and hasKey == False and frameCount >= 18000:
+                generateEnemy(3)
             if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
                 playerCurrentHealth += 1
             if len(enemiesList) != 0:
@@ -454,6 +465,19 @@ def generateEnemy(enemyNumber):
             'coinGiven': enemy2['coinGiven'],
             'lastSummonTime': frameCount
         }
+    
+    elif enemyNumber == 3:  # Tank enemy
+        newEnemy = {
+            'rect': pygame.Rect(x, y, enemy3['size'], enemy3['size']),
+            'speed': enemy3['speed'],
+            'health': enemy3['health'],
+            'maxHealth': enemy3['health'],
+            'size': enemy3['size'],
+            'damage': enemy3['damageAmount'],
+            'number': 3,
+            'coinGiven': enemy3['coinGiven']
+        }
+
     elif enemyNumber == 100:
         newEnemy = {
             'rect': pygame.Rect(x, y, boss100['size'], boss100['size']),
@@ -604,6 +628,8 @@ def drawGameFrame():
             pygame.draw.rect(screen, (255, 0, 255), enemy['rect'])  # Purple color for summoner
         elif enemy['size'] < enemy1['size']:  # Minion
             pygame.draw.rect(screen, (255, 165, 0), enemy['rect'])  # Orange color for minions
+        elif enemy['number'] == 3:  # Tank enemy
+            pygame.draw.rect(screen, (0, 128, 128), enemy['rect'])  # Teal color for tank enemy
         else:
             pygame.draw.rect(screen, enemyColor, enemy['rect'])
         drawEnemyHealthBar(enemy)
