@@ -13,11 +13,12 @@ def runGame():
 
 def declareVars():
     print("Declaring variables...")
-    global screenWidth, screenHeight, scaleHeight, isPaused
+    global screenWidth, screenHeight, scaleHeight, isPaused, damageIndicators
     screenWidth = 1200 
     screenHeight = 800 
     scaleHeight = screenHeight
     isPaused = False
+    damageIndicators = []
 
     print("Creating player variables...")
     global playerVars, playerCurrentHealth
@@ -33,21 +34,21 @@ def declareVars():
     global upgrades, keyPrice, hasKey, baseStatUpgrades
     upgrades = {
         'basic attack damage': {'level': 1, 'price': 1, 'increment': 1},
-        'basic attack frequency': {'level': 1, 'price': 10, 'increment': 1},
+        'basic attack frequency': {'level': 1, 'price': 3, 'increment': 1},
         # 'basic attack speed': {'level': 1, 'price': 10, 'increment': 0.1},
         # goes to level 2 when active
-        'all direction attack': {'level': 1, 'price': 50, 'increment': 0},
-        'all direction attack damage': {'level': 0, 'price': 10, 'increment': 0.1},
-        'all direction attack projectile number': {'level': 0, 'price': 10, 'increment': 12},
-        'all direction attack frequency': {'level': 0, 'price': 100, 'increment': 7},
+        'all direction attack': {'level': 1, 'price': 15, 'increment': 0},
+        'all direction attack damage': {'level': 0, 'price': 5, 'increment': 0.1},
+        'all direction attack projectile number': {'level': 0, 'price': 7, 'increment': 12},
+        'all direction attack frequency': {'level': 0, 'price': 10, 'increment': 7},
 
-        'aoe attack': {'level': 1, 'price': 50, 'increment': 0},
-        'aoe attack damage': {'level': 0, 'price': 10, 'increment': 0.5},
-        'aoe attack frequency': {'level': 0, 'price': 100, 'increment': 2},
-        'aoe attack radius': {'level': 0, 'price': 20, 'increment': 5},
+        'aoe attack': {'level': 1, 'price': 15, 'increment': 0},
+        'aoe attack damage': {'level': 0, 'price': 3, 'increment': 0.5},
+        'aoe attack frequency': {'level': 0, 'price': 6, 'increment': 2},
+        'aoe attack radius': {'level': 0, 'price': 3, 'increment': 5},
         
         'speed': {'level': 1, 'price': 10, 'increment': 0.1},
-        'health': {'level': 1, 'price': 100, 'increment': 50},
+        'health': {'level': 1, 'price': 10, 'increment': 50},
         'heal frequency': {'level': 1, 'price': 5, 'increment': 2}
     }
     baseStatUpgrades = copy.deepcopy(upgrades)
@@ -98,7 +99,7 @@ def declareVars():
 
     # summoner
     enemy2 = {
-        'spawnFrequency': 1800,  # How often the summoner appears
+        'spawnFrequency': 2000,  # How often the summoner appears
         'summonFrequency': 300,  # How often it summons minions
         'damageAmount': 2,
         'health': 500,
@@ -109,7 +110,7 @@ def declareVars():
 
     # Tank
     enemy3 = {
-    'spawnFrequency': 1200,  # Spawns less frequently than other enemies
+    'spawnFrequency': 2000,  # Spawns less frequently than other enemies
     'damageAmount': 3,
     'health': 800,
     'speed': 1,  # Slower than other enemies
@@ -151,6 +152,14 @@ def initGame():
     screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.SCALED | pygame.RESIZABLE )
     fakeScreen = screen.copy()
     pygame.display.set_caption("Circle vs Squares")
+
+def addDamageIndicator(position, damage):
+    damageIndicators.append({
+        'position': position,
+        'damage': round(damage, 1),  # Round to 1 decimal place
+        'lifetime': 60,  # Display for 60 frames (1 second at 60 FPS)
+        'color': (255, 0, 0)  # Red color
+    })
 
 def pauseMenu():
     global isPaused
@@ -372,11 +381,11 @@ def mainStep():
                 #TODO: Temp code
                 if enemy1['spawnFrequency'] > 1:
                     enemy1['spawnFrequency'] -= 1
-            if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False and frameCount >= 5400:
+            if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False and frameCount >= 18000:
                 generateEnemy(2)
                 if enemy2['spawnFrequency'] > 1:
-                    enemy2['spawnFrequency'] -= 1
-            if frameCount % enemy3['spawnFrequency'] == 0 and hasKey == False and frameCount >= 18000:
+                    enemy2['spawnFrequency'] -= 5
+            if frameCount % enemy3['spawnFrequency'] == 0 and hasKey == False and frameCount >= 6000:
                 generateEnemy(3)
                 if enemy3['spawnFrequency'] > 1:
                     enemy3['spawnFrequency'] -= 1
@@ -398,6 +407,7 @@ def mainStep():
             manageDamagingZones()
             drawGameFrame()
             playerDamage()
+            updateDamageIndicators()
             frameCount += 1
             print(frameCount)
         clock.tick(60)
@@ -529,12 +539,13 @@ def generateEnemy(enemyNumber):
     enemiesList.append(newEnemy)
 
 def usePlayerAoeAttack():
-    global enemiesList, playerVars, playerAoeAttack
+    global enemiesList, playerVars, playerAoeAttack, damageIndicators
     for enemy in enemiesList[:]:
         distance = math.hypot(enemy['rect'].centerx - playerVars['position'][0],
                               enemy['rect'].centery - playerVars['position'][1])
         if distance <= playerAoeAttack['radius']:
             enemy['health'] -= playerAoeAttack['damage']
+            addDamageIndicator((enemy['rect'].centerx, enemy['rect'].top), playerAoeAttack['damage'])
             if enemy['health'] <= 0:
                 playerVars['coins'] += enemy['coinGiven']
                 enemiesList.remove(enemy)
@@ -577,7 +588,7 @@ def summonMinions(summoner_enemy):
             'rect': pygame.Rect(x, y, enemy1['size'] // 2, enemy1['size'] // 2),
             'speed': enemy1['speed'] * 1.5,
             'health': enemy1['health'] // 4,
-            'maxHealth': enemy1['health'] // 2,
+            'maxHealth': enemy1['health'] // 4,
             'size': enemy1['size'] // 2,
             'damage': enemy1['damageAmount'],
             'number': 1,
@@ -586,7 +597,7 @@ def summonMinions(summoner_enemy):
         enemiesList.append(minion)
 
 def updatePlayerBasicAttackProjectile():
-    global playerBasicAttack, enemiesList
+    global playerBasicAttack, enemiesList, damageIndicators
     for projectile in playerBasicAttack['list']:
         # Move projectile
         projectile['position'][0] += projectile['direction'][0] * playerBasicAttack['speed']
@@ -601,6 +612,7 @@ def updatePlayerBasicAttackProjectile():
         for enemy in enemiesList:
             if projectileRect.colliderect(enemy['rect']):
                 enemy['health'] -= playerBasicAttack['damage']
+                addDamageIndicator((enemy['rect'].centerx, enemy['rect'].top), playerBasicAttack['damage'])
                 if enemy['health'] <= 0:
                     # Add coins to player for kill then remove the enemy
                     playerVars['coins'] += enemy['coinGiven']
@@ -609,7 +621,7 @@ def updatePlayerBasicAttackProjectile():
                 break
 
 def updatePlayerAllDirectionAttackProjectile():
-    global playerAllDirectionAttack, enemiesList
+    global playerAllDirectionAttack, enemiesList, damageIndicators
     for projectile in playerAllDirectionAttack['list']:
         # Move projectile
         projectile['position'][0] += projectile['direction'][0] * playerAllDirectionAttack['speed']
@@ -624,6 +636,7 @@ def updatePlayerAllDirectionAttackProjectile():
         for enemy in enemiesList:
             if projectileRect.colliderect(enemy['rect']):
                 enemy['health'] -= playerAllDirectionAttack['damage']
+                addDamageIndicator((enemy['rect'].centerx, enemy['rect'].top), playerAllDirectionAttack['damage'])
                 if enemy['health'] <= 0:
                     # Add coins to player for kill then remove the enemy
                     playerVars['coins'] += enemy['coinGiven']
@@ -715,8 +728,24 @@ def drawGameFrame():
     # Draw projectiles from playerAllDirectionAttack
     for projectile in playerAllDirectionAttack['list']:
         pygame.draw.circle(screen, playerAllDirectionAttack['color'], [int(projectile['position'][0]), int(projectile['position'][1])], playerAllDirectionAttack['size'])
-    
+    # Draw damage indicators
+    font = pygame.font.Font(None, 24)
+    for indicator in damageIndicators[:]:
+        text = font.render(str(indicator['damage']), True, indicator['color'])
+        screen.blit(text, indicator['position'])
+        indicator['lifetime'] -= 1
+        indicator['position'] = (indicator['position'][0], indicator['position'][1] - 1)  # Move up
+        if indicator['lifetime'] <= 0:
+            damageIndicators.remove(indicator)
     pygame.display.flip()
+
+def updateDamageIndicators():
+    global damageIndicators
+    for indicator in damageIndicators[:]:
+        indicator['lifetime'] -= 1
+        indicator['position'] = (indicator['position'][0], indicator['position'][1] - 1)  # Move up
+        if indicator['lifetime'] <= 0:
+            damageIndicators.remove(indicator)
 
 def playerDamage():
     global playerCurrentHealth
