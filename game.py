@@ -40,6 +40,11 @@ def declareVars():
         'all direction attack damage': {'level': 0, 'price': 10, 'increment': 0.1},
         'all direction attack projectile number': {'level': 0, 'price': 10, 'increment': 12},
         'all direction attack frequency': {'level': 0, 'price': 100, 'increment': 7},
+
+        'aoe attack': {'level': 1, 'price': 50, 'increment': 0},
+        'aoe attack damage': {'level': 0, 'price': 10, 'increment': 0.5},
+        'aoe attack frequency': {'level': 0, 'price': 100, 'increment': 2},
+        'aoe attack radius': {'level': 0, 'price': 20, 'increment': 5},
         
         'speed': {'level': 1, 'price': 10, 'increment': 0.1},
         'health': {'level': 1, 'price': 100, 'increment': 50},
@@ -49,7 +54,7 @@ def declareVars():
     keyPrice = 100
     hasKey = False
 
-    global playerBasicAttack, playerAllDirectionAttack
+    global playerBasicAttack, playerAllDirectionAttack, playerAoeAttack
     playerBasicAttack = {
         'list': [],
         'size': 5,
@@ -67,6 +72,13 @@ def declareVars():
         'damage': 5,
         'projectile amount': 4
     }
+    playerAoeAttack = {
+        'active': False,
+        'damage': 10,
+        'frequency': 120,
+        'radius': 50,
+        'color': (0, 255, 255)  # Cyan color
+    }
 
     print("Creating enemies variables...")
     global enemiesList, enemySize, enemySpeed, damagingZones
@@ -81,18 +93,18 @@ def declareVars():
         'health': 100,
         'speed': 2,
         'size': 20,
-        'coinGiven': 1000
+        'coinGiven': 5 # 10000 for testing
     }
 
     # summoner
     enemy2 = {
-        'spawnFrequency': 900,  # How often the summoner appears
+        'spawnFrequency': 1800,  # How often the summoner appears
         'summonFrequency': 300,  # How often it summons minions
         'damageAmount': 2,
         'health': 500,
         'speed': 1,
         'size': 30,
-        'coinGiven': 5000
+        'coinGiven': 25
     }
 
     # Tank
@@ -102,7 +114,7 @@ def declareVars():
     'health': 800,
     'speed': 1,  # Slower than other enemies
     'size': 35,  # Larger than regular enemies
-    'coinGiven': 7500
+    'coinGiven': 20
 }
 
     boss100 = {
@@ -252,6 +264,21 @@ def handleUpgradeMenu():
                             elif upgrade == 'all direction attack frequency':
                                 playerAllDirectionAttack['frequency'] -= upgrades[upgrade]['increment']
                                 upgrades[upgrade]['price'] += baseStatUpgrades['all direction attack frequency']['price']
+                            elif upgrade == 'aoe attack':
+                                playerAoeAttack['active'] = True
+                                upgrades['aoe attack']['level'] += 50
+                                upgrades['aoe attack damage']['level'] += 1
+                                upgrades['aoe attack frequency']['level'] += 1
+                                upgrades['aoe attack radius']['level'] += 1
+                            elif upgrade == 'aoe attack damage':
+                                playerAoeAttack['damage'] += upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['aoe attack damage']['price']
+                            elif upgrade == 'aoe attack frequency':
+                                playerAoeAttack['frequency'] -= upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['aoe attack frequency']['price']
+                            elif upgrade == 'aoe attack radius':
+                                playerAoeAttack['radius'] += upgrades[upgrade]['increment']
+                                upgrades[upgrade]['price'] += baseStatUpgrades['aoe attack radius']['price']
                             elif upgrade == 'speed':
                                 playerVars['speed'] += upgrades[upgrade]['increment']
                                 upgrades[upgrade]['price'] += baseStatUpgrades['speed']['price']
@@ -342,10 +369,19 @@ def mainStep():
                 generateTerrain()
             if frameCount % enemy1['spawnFrequency'] == 0 and hasKey == False:
                 generateEnemy(1)
+                #TODO: Temp code
+                if enemy1['spawnFrequency'] > 1:
+                    enemy1['spawnFrequency'] -= 1
             if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False and frameCount >= 5400:
                 generateEnemy(2)
+                if enemy2['spawnFrequency'] > 1:
+                    enemy2['spawnFrequency'] -= 1
             if frameCount % enemy3['spawnFrequency'] == 0 and hasKey == False and frameCount >= 18000:
                 generateEnemy(3)
+                if enemy3['spawnFrequency'] > 1:
+                    enemy3['spawnFrequency'] -= 1
+            if frameCount % playerAoeAttack['frequency'] == 0 and playerAoeAttack['active']:
+                usePlayerAoeAttack()
             if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
                 playerCurrentHealth += 1
             if len(enemiesList) != 0:
@@ -492,6 +528,17 @@ def generateEnemy(enemyNumber):
     
     enemiesList.append(newEnemy)
 
+def usePlayerAoeAttack():
+    global enemiesList, playerVars, playerAoeAttack
+    for enemy in enemiesList[:]:
+        distance = math.hypot(enemy['rect'].centerx - playerVars['position'][0],
+                              enemy['rect'].centery - playerVars['position'][1])
+        if distance <= playerAoeAttack['radius']:
+            enemy['health'] -= playerAoeAttack['damage']
+            if enemy['health'] <= 0:
+                playerVars['coins'] += enemy['coinGiven']
+                enemiesList.remove(enemy)
+
 def usePlayerBasicAttack():
     global playerBasicAttack
     nearestEnemy = min(enemiesList, key=lambda e: math.hypot(e['rect'].centerx - playerVars['position'][0], e['rect'].centery - playerVars['position'][1]))
@@ -534,7 +581,7 @@ def summonMinions(summoner_enemy):
             'size': enemy1['size'] // 2,
             'damage': enemy1['damageAmount'],
             'number': 1,
-            'coinGiven': 0
+            'coinGiven': 2
         }
         enemiesList.append(minion)
 
@@ -638,8 +685,12 @@ def drawGameFrame():
         pygame.draw.circle(screen, zone['color'], 
                            (int(zone['position'][0]), int(zone['position'][1])), 
                            int(zone['radius']))
-    # Draw Player
+    # Draw Playeraaaaaaa
     player = pygame.draw.circle(screen, playerColor, playerVars['position'], playerVars['size'])
+    if playerAoeAttack['active']:
+        pygame.draw.circle(screen, playerAoeAttack['color'], 
+                       (int(playerVars['position'][0]), int(playerVars['position'][1])), 
+                       int(playerAoeAttack['radius']), 2)
     # Draw health bar
     bar_width = 200
     bar_height = 20
