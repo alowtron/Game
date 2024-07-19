@@ -4,6 +4,7 @@ import sys
 import random
 import math
 import copy 
+import random
 
 def runGame():
     declareVars()
@@ -31,7 +32,7 @@ def declareVars():
         'coins': 0 
     }
     playerCurrentHealth = playerVars['maxHealth']
-    global upgrades, keyPrice, hasKey, baseStatUpgrades
+    global upgrades, keyPrice, hasKey, hasKey1000, baseStatUpgrades
     upgrades = {
         'basic attack damage': {'level': 1, 'price': 1, 'increment': 1},
         'basic attack frequency': {'level': 1, 'price': 3, 'increment': 1},
@@ -54,6 +55,7 @@ def declareVars():
     baseStatUpgrades = copy.deepcopy(upgrades)
     keyPrice = 100
     hasKey = False
+    hasKey1000 = False
 
     global playerBasicAttack, playerAllDirectionAttack, playerAoeAttack
     playerBasicAttack = {
@@ -110,13 +112,13 @@ def declareVars():
 
     # Tank
     enemy3 = {
-    'spawnFrequency': 2000,  # Spawns less frequently than other enemies
-    'damageAmount': 3,
-    'health': 800,
-    'speed': 1,  # Slower than other enemies
-    'size': 35,  # Larger than regular enemies
-    'coinGiven': 20
-}
+        'spawnFrequency': 2000,  # Spawns less frequently than other enemies
+        'damageAmount': 3,
+        'health': 800,
+        'speed': 1,  # Slower than other enemies
+        'size': 35,  # Larger than regular enemies
+        'coinGiven': 20
+    }
 
     boss100 = {
         'damageAmount': 5,
@@ -124,6 +126,14 @@ def declareVars():
         'speed': 2,
         'size': 40,
         'coinGiven': 2000
+    }
+
+    boss1000 = {
+        'damageAmount': 10,
+        'health': 5000,
+        'speed': 3,
+        'size': 50,
+        'coinGiven': 10000
     }
 
     print("Creating colors...")
@@ -380,7 +390,8 @@ def mainStep():
                 generateEnemy(1)
                 #TODO: Temp code
                 if enemy1['spawnFrequency'] > 1:
-                    enemy1['spawnFrequency'] -= 1
+                    if random.randint(0, 1) == 1:
+                        enemy1['spawnFrequency'] -= 1
             if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False and frameCount >= 18000:
                 generateEnemy(2)
                 if enemy2['spawnFrequency'] > 1:
