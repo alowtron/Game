@@ -96,7 +96,7 @@ def declareVars():
         'health': 100,
         'speed': 2,
         'size': 20,
-        'coinGiven': 5 # 10000 for testing
+        'coinGiven': 50000 # 10000 for testing
     }
 
     # summoner
@@ -227,33 +227,44 @@ def generateTerrain():
         terrainArray.pop(0)
 
 def handleUpgradeMenu():
-    global playerVars, upgrades, hasKey, isPaused, playerCurrentHealth
+    global playerVars, upgrades, hasKey, hasKey1000, isPaused, playerCurrentHealth
     levelCap = 50
-    # Create a list of available upgrade options (level <= levelCap) and is level 1 or higher (level 0 skills are not active yet) including Boss Key and Back
     
-    
-    selected = 0  # Initialize the selected option
+    selected = 0
     
     while True:
-        upgradeOptions = [upgrade for upgrade, data in upgrades.items() if data['level'] <= levelCap and data['level'] > 0] + ["Boss Key", "Back"]
-        drawUpgradeMenu(selected, upgradeOptions)  # Pass upgradeOptions to drawUpgradeMenu
+        upgradeOptions = [upgrade for upgrade, data in upgrades.items() if data['level'] <= levelCap and data['level'] > 0]
+        if not hasKey:
+            upgradeOptions.append("Boss Key (100)")
+        if hasKey and not hasKey1000:
+            upgradeOptions.append("Boss Key (1000)")
+        upgradeOptions.append("Back")
+        
+        drawUpgradeMenu(selected, upgradeOptions)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 quitGame()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    return  # Exit the upgrade menu
+                    return
                 elif event.key == pygame.K_UP or event.key == pygame.K_w:
-                    # Move selection up, wrapping around to bottom if at top
                     selected = (selected - 1) % len(upgradeOptions)
                 elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                    # Move selection down, wrapping around to top if at bottom
                     selected = (selected + 1) % len(upgradeOptions)
                 elif event.key == pygame.K_RETURN:
-                    if selected < len(upgradeOptions) - 2:  # -2 for Boss Key and Back options
-                        # Handle upgrade selection
+                    if selected < len(upgradeOptions) - 1:  # Not "Back" option
                         upgrade = upgradeOptions[selected]
-                        if playerVars['coins'] >= upgrades[upgrade]['price']:
+                        if upgrade == "Boss Key (100)" and playerVars['coins'] >= 100:
+                            playerVars['coins'] -= 100
+                            hasKey = True
+                            enemiesList.clear()
+                            generateEnemy(100)
+                        elif upgrade == "Boss Key (1000)" and playerVars['coins'] >= 1000:
+                            playerVars['coins'] -= 1000
+                            hasKey1000 = True
+                            enemiesList.clear()
+                            generateEnemy(1000)
+                        elif upgrade in upgrades and playerVars['coins'] >= upgrades[upgrade]['price']:
 
                             # Apply the upgrade
                             playerVars['coins'] -= upgrades[upgrade]['price']
@@ -339,14 +350,25 @@ def drawUpgradeMenu(selected, upgradeOptions):
         screen.blit(textSurface, textRect)
         y += 50  # Move down for next option
     
-    # Draw Boss Key option
-    keyText = f"Boss Key: {'Owned' if hasKey else f'Cost: {keyPrice} coins'}"
-    keySurface = upgradeFont.render(keyText, True, (255, 255, 0))
-    keyRect = keySurface.get_rect(center=(screenWidth // 2, y + 50))
-    if selected == len(upgradeOptions) - 2:
-        # Highlight if selected
-        pygame.draw.rect(screen, (100, 100, 100), keyRect.inflate(20, 10))
-    screen.blit(keySurface, keyRect)
+    # Draw Boss Key options
+    y += 50
+    if "Boss Key (100)" in upgradeOptions:
+        keyText = "Boss Key (100): Cost: 100 coins"
+        keySurface = upgradeFont.render(keyText, True, (255, 255, 0))
+        keyRect = keySurface.get_rect(center=(screenWidth // 2, y))
+        if selected == upgradeOptions.index("Boss Key (100)"):
+            pygame.draw.rect(screen, (100, 100, 100), keyRect.inflate(20, 10))
+        screen.blit(keySurface, keyRect)
+        y += 50
+    
+    if "Boss Key (1000)" in upgradeOptions:
+        keyText = "Boss Key (1000): Cost: 1000 coins"
+        keySurface = upgradeFont.render(keyText, True, (255, 255, 0))
+        keyRect = keySurface.get_rect(center=(screenWidth // 2, y))
+        if selected == upgradeOptions.index("Boss Key (1000)"):
+            pygame.draw.rect(screen, (100, 100, 100), keyRect.inflate(20, 10))
+        screen.blit(keySurface, keyRect)
+        y += 50
     
     # Draw Back option
     backText = "Back"
@@ -426,13 +448,19 @@ def mainStep():
     quitGame()
 
 def startBossFight():
-    global hasKey
-    if hasKey:
-        print("Starting boss fight!")
-        # Add boss fight logic here
+    global hasKey, hasKey1000
+    if hasKey and not hasKey1000:
+        print("Starting boss 100 fight!")
         hasKey = False
+        enemiesList.clear()
+        generateEnemy(100)
+    elif hasKey1000:
+        print("Starting boss 1000 fight!")
+        hasKey1000 = False
+        enemiesList.clear()
+        generateEnemy(1000)
     else:
-        print("You need a key to start the boss fight!")
+        print("You need a key to start a boss fight!")
 
 def playerMovement():
     global playerVars
@@ -545,6 +573,18 @@ def generateEnemy(enemyNumber):
             'damage': boss100['damageAmount'],
             'number': 100,
             'coinGiven': boss100['coinGiven']
+        }
+        
+    elif enemyNumber == 1000:
+        newEnemy = {
+            'rect': pygame.Rect(x, y, boss1000['size'], boss1000['size']),
+            'speed': boss1000['speed'],
+            'health': boss1000['health'],
+            'maxHealth': boss1000['health'],
+            'size': boss1000['size'],
+            'damage': boss1000['damageAmount'],
+            'number': 1000,
+            'coinGiven': boss1000['coinGiven']
         }
     
     enemiesList.append(newEnemy)
