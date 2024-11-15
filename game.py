@@ -21,6 +21,11 @@ def declareVars():
     isPaused = False
     damageIndicators = []
 
+    global playerFlashDuration, playerFlashTimer, playerFlashing
+    playerFlashDuration = 10  # Flash for 10 frames
+    playerFlashTimer = 0
+    playerFlashing = False
+
     print("Creating player variables...")
     global playerVars, playerCurrentHealth
     playerVars = {
@@ -96,7 +101,7 @@ def declareVars():
         'health': 100,
         'speed': 2,
         'size': 20,
-        'coinGiven': 50000 # 10000 for testing
+        'coinGiven': 10000 # 10000 for testing
     }
 
     # summoner
@@ -696,7 +701,7 @@ def updatePlayerAllDirectionAttackProjectile():
                 break
 
 def manageDamagingZones():
-    global damagingZones, playerCurrentHealth
+    global damagingZones, playerCurrentHealth, playerFlashing, playerFlashTimer
     
     # Create new damaging zone if boss 100 exists
     for enemy in enemiesList:
@@ -723,17 +728,24 @@ def manageDamagingZones():
             if distance < zone['radius'] + playerVars['size']:
                 playerCurrentHealth -= zone['damage']
                 print(f"Player in damaging zone! Current health: {playerCurrentHealth}")
+                
+                # Start flashing effect
+                playerFlashing = True
+                playerFlashTimer = playerFlashDuration  # Reset the timer
+
                 if playerCurrentHealth <= 0:
                     print("Game Over!")
                     quitGame()
 
 def drawGameFrame():
     print("Drawing frame...")
-    # Sets background color
     screen.fill(backgroundColor)
-    global player
+    
+    global playerFlashing, playerFlashTimer  # Add this line to declare global variables
+
     for terrain in terrainArray:
         pygame.draw.rect(screen, wallColor, terrain)
+    
     for enemy in enemiesList:
         if enemy['number'] == 2:  # Summoner
             pygame.draw.rect(screen, (255, 0, 255), enemy['rect'])  # Purple color for summoner
@@ -744,17 +756,36 @@ def drawGameFrame():
         else:
             pygame.draw.rect(screen, enemyColor, enemy['rect'])
         drawEnemyHealthBar(enemy)
+
     # Draw damaging zones
     for zone in damagingZones:
         pygame.draw.circle(screen, zone['color'], 
                            (int(zone['position'][0]), int(zone['position'][1])), 
                            int(zone['radius']))
-    # Draw Playeraaaaaaa
-    player = pygame.draw.circle(screen, playerColor, playerVars['position'], playerVars['size'])
+    
+    # Draw Player with flashing effect
+    if playerFlashing:
+        if (frameCount // 5) % 2 == 0:  # Alternate every 5 frames
+            playerColor = (173, 216, 230)  # Light blue color
+        else:
+            playerColor = (0, 0, 255)  # Original color (blue)
+
+        playerFlashTimer -= 1  # Decrease the timer
+        if playerFlashTimer <= 0:
+            playerFlashing = False  # Stop flashing
+            playerColor = (0, 0, 255)  # Reset to original color
+    else:
+        playerColor = (0, 0, 255)  # Reset to original color if not flashing
+    
     if playerAoeAttack['active']:
         pygame.draw.circle(screen, playerAoeAttack['color'], 
-                       (int(playerVars['position'][0]), int(playerVars['position'][1])), 
-                       int(playerAoeAttack['radius']), 2)
+                        (int(playerVars['position'][0]), int(playerVars['position'][1])), 
+                        int(playerAoeAttack['radius']), 2)
+
+
+    player = pygame.draw.circle(screen, playerColor, playerVars['position'], playerVars['size'])
+
+
     # Draw health bar
     bar_width = 200
     bar_height = 20
@@ -769,16 +800,20 @@ def drawGameFrame():
     pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, health_width, bar_height))
     # Optional: Add a border to the health bar
     pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 2)
+
     # Draw coins amount
     font = pygame.font.Font(None, 36)
     coinText = font.render(f"Coins: {playerVars['coins']}", True, (255, 255, 255))
     screen.blit(coinText, (10, 10))
+
     # Draw Projectiles from playerBasicAttack
     for projectile in playerBasicAttack['list']:
         pygame.draw.circle(screen, playerBasicAttack['color'], [int(projectile['position'][0]), int(projectile['position'][1])], playerBasicAttack['size'])
+    
     # Draw projectiles from playerAllDirectionAttack
     for projectile in playerAllDirectionAttack['list']:
         pygame.draw.circle(screen, playerAllDirectionAttack['color'], [int(projectile['position'][0]), int(projectile['position'][1])], playerAllDirectionAttack['size'])
+    
     # Draw damage indicators
     font = pygame.font.Font(None, 24)
     for indicator in damageIndicators[:]:
@@ -788,6 +823,7 @@ def drawGameFrame():
         indicator['position'] = (indicator['position'][0], indicator['position'][1] - 1)  # Move up
         if indicator['lifetime'] <= 0:
             damageIndicators.remove(indicator)
+
     pygame.display.flip()
 
 def updateDamageIndicators():
@@ -799,16 +835,19 @@ def updateDamageIndicators():
             damageIndicators.remove(indicator)
 
 def playerDamage():
-    global playerCurrentHealth
+    global playerCurrentHealth, playerFlashing, playerFlashTimer
     player_rect = pygame.Rect(playerVars['position'][0] - playerVars['size'], playerVars['position'][1] - playerVars['size'], playerVars['size'] * 2, playerVars['size'] * 2)
     for enemy in enemiesList:
         if player_rect.colliderect(enemy['rect']):
-            damage = enemy.get('damage', 0)  # Use 0 as default if 'damage' key doesn't exist
+            damage = enemy.get('damage', 0)
             playerCurrentHealth -= damage
             print(f"Player hit by enemy type {enemy['number']}! Damage: {damage}, Current health: {playerCurrentHealth}")
             if playerCurrentHealth <= 0:
                 print("Game Over!")
                 quitGame()
+            # Start flashing effect
+            playerFlashing = True
+            playerFlashTimer = playerFlashDuration  # Set the timer to the duration
 
 def quitGame():
     pygame.quit()
@@ -831,3 +870,6 @@ def drawEnemyHealthBar(enemy):
 
 
 runGame()
+
+
+# 5 dollar key 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
