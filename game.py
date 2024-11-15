@@ -421,12 +421,12 @@ def mainStep():
                         enemy1['spawnFrequency'] -= 1
             if frameCount % enemy2['spawnFrequency'] == 0 and hasKey == False and frameCount >= 18000:
                 generateEnemy(2)
-                if enemy2['spawnFrequency'] > 1:
+                if enemy2['spawnFrequency'] > 6:
                     enemy2['spawnFrequency'] -= 5
             if frameCount % enemy3['spawnFrequency'] == 0 and hasKey == False and frameCount >= 6000:
                 generateEnemy(3)
-                if enemy3['spawnFrequency'] > 1:
-                    enemy3['spawnFrequency'] -= 1
+                if enemy3['spawnFrequency'] > 4:
+                    enemy3['spawnFrequency'] -= 3
             if frameCount % playerAoeAttack['frequency'] == 0 and playerAoeAttack['active']:
                 usePlayerAoeAttack()
             if frameCount % playerVars['healFrequency'] == 0 and playerCurrentHealth < playerVars['maxHealth']:
