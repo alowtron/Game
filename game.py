@@ -94,7 +94,7 @@ def declareVars():
     enemySize = 20
     enemySpeed = 2
     damagingZones = []
-    global enemy1, enemy2, enemy3, boss100
+    global enemy1, enemy2, enemy3, boss100, boss1000
     enemy1 = {
         'spawnFrequency': 240,
         'damageAmount': 1,
@@ -871,5 +871,3 @@ def drawEnemyHealthBar(enemy):
 
 runGame()
 
-
-# 5 dollar key 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
